@@ -1,0 +1,430 @@
+-- ============================
+-- HUMANA_WORK: Script de criação do schema DB
+-- Para Oracle Database (SQL*Plus / SQL Developer)
+-- ============================
+
+SET SERVEROUTPUT ON
+ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
+
+-- ------------------------------------------------
+-- 1) DROP objetos existentes (silencioso)
+-- ------------------------------------------------
+BEGIN
+  EXECUTE IMMEDIATE 'DROP PACKAGE humana_work_pkg';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE usage_log CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE learning_metrics CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE checkins CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE sessoes_foco CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE membros_sala CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE salas_foco CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE usuarios CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+-- Sequences
+BEGIN
+  EXECUTE IMMEDIATE 'DROP SEQUENCE seq_usuarios';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP SEQUENCE seq_salas';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP SEQUENCE seq_membros';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP SEQUENCE seq_sessoes';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP SEQUENCE seq_checkins';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP SEQUENCE seq_metrics';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP SEQUENCE seq_usagelog';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+COMMIT;
+
+-- ------------------------------------------------
+-- 2) Criar tabelas principais
+-- ------------------------------------------------
+
+-- USUARIOS
+CREATE TABLE usuarios (
+  id_usuario      NUMBER(10)        PRIMARY KEY,
+  nome            VARCHAR2(100)     NOT NULL,
+  email           VARCHAR2(150)     NOT NULL,
+  senha_hash      VARCHAR2(256)     NOT NULL,
+  cargo           VARCHAR2(50),
+  data_cadastro   DATE              DEFAULT SYSDATE,
+  CONSTRAINT uk_usuarios_email UNIQUE (email)
+);
+
+-- SALAS_FOCO
+CREATE TABLE salas_foco (
+  id_sala        NUMBER(10)        PRIMARY KEY,
+  nome_sala      VARCHAR2(100)     NOT NULL,
+  descricao      VARCHAR2(4000),
+  tema           VARCHAR2(80),
+  criada_por     NUMBER(10),
+  data_criacao   DATE              DEFAULT SYSDATE,
+  CONSTRAINT fk_salas_criador FOREIGN KEY (criada_por) REFERENCES usuarios(id_usuario)
+);
+
+-- MEMBROS_SALA (N:N)
+CREATE TABLE membros_sala (
+  id_membro      NUMBER(10)        PRIMARY KEY,
+  id_sala        NUMBER(10)        NOT NULL,
+  id_usuario     NUMBER(10)        NOT NULL,
+  papel          VARCHAR2(20)      DEFAULT 'participante',
+  data_entrada   DATE              DEFAULT SYSDATE,
+  CONSTRAINT fk_membros_sala_sala FOREIGN KEY (id_sala) REFERENCES salas_foco (id_sala) ON DELETE CASCADE,
+  CONSTRAINT fk_membros_sala_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario) ON DELETE CASCADE,
+  CONSTRAINT ux_membros_unique UNIQUE (id_sala, id_usuario)
+);
+
+-- SESSOES_FOCO
+CREATE TABLE sessoes_foco (
+  id_sessao        NUMBER(10)      PRIMARY KEY,
+  id_sala          NUMBER(10)      NOT NULL,
+  id_usuario       NUMBER(10)      NOT NULL,
+  inicio_sessao    DATE            NOT NULL,
+  fim_sessao       DATE,
+  duracao_minutos  NUMBER(6),
+  objetivo_resumido VARCHAR2(150),
+  status           VARCHAR2(20)    DEFAULT 'em_andamento',
+  CONSTRAINT fk_sessoes_sala FOREIGN KEY (id_sala) REFERENCES salas_foco (id_sala),
+  CONSTRAINT fk_sessoes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
+);
+
+-- CHECKINS
+CREATE TABLE checkins (
+  id_checkin     NUMBER(10)        PRIMARY KEY,
+  id_usuario     NUMBER(10)        NOT NULL,
+  data_checkin   DATE              DEFAULT SYSDATE,
+  humor          NUMBER(2)         CHECK (humor BETWEEN 1 AND 5),
+  energia        NUMBER(3)         CHECK (energia BETWEEN 0 AND 10),
+  foco_dia       VARCHAR2(150),
+  CONSTRAINT fk_checkins_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
+);
+
+-- LEARNING_METRICS
+CREATE TABLE learning_metrics (
+  id_metric         NUMBER(10)     PRIMARY KEY,
+  id_usuario        NUMBER(10)     NOT NULL,
+  periodo_inicio    DATE,
+  periodo_fim       DATE,
+  total_sessoes     NUMBER(8) DEFAULT 0,
+  total_minutos_foco NUMBER(12) DEFAULT 0,
+  media_humor       NUMBER(5,2),
+  objetivos_cumpridos NUMBER(10) DEFAULT 0,
+  CONSTRAINT fk_metrics_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
+);
+
+-- USAGE_LOG
+CREATE TABLE usage_log (
+  id_log         NUMBER(10)        PRIMARY KEY,
+  id_usuario     NUMBER(10),
+  acao           VARCHAR2(50)      NOT NULL,
+  detalhe        VARCHAR2(4000),
+  data_registro  DATE              DEFAULT SYSDATE,
+  CONSTRAINT fk_usagelog_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
+);
+
+COMMIT;
+
+-- ------------------------------------------------
+-- 3) Sequences
+-- ------------------------------------------------
+CREATE SEQUENCE seq_usuarios START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE seq_salas START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE seq_membros START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE seq_sessoes START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE seq_checkins START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE seq_metrics START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE seq_usagelog START WITH 1 INCREMENT BY 1 NOCACHE;
+
+COMMIT;
+
+-- ------------------------------------------------
+-- 4) Índices adicionais (performance)
+-- ------------------------------------------------
+CREATE INDEX idx_sessoes_usuario_inicio ON sessoes_foco (id_usuario, inicio_sessao);
+CREATE INDEX idx_checkins_usuario_data ON checkins (id_usuario, data_checkin);
+CREATE INDEX idx_usagelog_usuario_data ON usage_log (id_usuario, data_registro);
+
+COMMIT;
+
+-- ------------------------------------------------
+-- 5) Pacote PL/SQL (spec + body)
+--    Pacote principal para automação: registrar checkin, iniciar/encerrar sessão, relatorios
+-- ------------------------------------------------
+
+CREATE OR REPLACE PACKAGE humana_work_pkg AS
+  -- Registra um check-in do usuário
+  PROCEDURE registrar_checkin(
+    p_id_usuario IN usuarios.id_usuario%TYPE,
+    p_humor      IN NUMBER,
+    p_energia    IN NUMBER,
+    p_foco_dia   IN VARCHAR2
+  );
+
+  -- Inicia sessão de foco (cria SESSOES_FOCO e log)
+  PROCEDURE iniciar_sessao_foco(
+    p_id_usuario IN usuarios.id_usuario%TYPE,
+    p_id_sala    IN salas_foco.id_sala%TYPE,
+    p_objetivo   IN VARCHAR2 DEFAULT NULL,
+    p_id_sessao  OUT sessoes_foco.id_sessao%TYPE
+  );
+
+  -- Encerra sessão de foco (calcula duração e atualiza status)
+  PROCEDURE encerrar_sessao_foco(
+    p_id_sessao IN sessoes_foco.id_sessao%TYPE
+  );
+
+  -- Gera relatório de métricas para período (retorna cursor com detalhes)
+  PROCEDURE gerar_relatorio_metricas(
+    p_id_usuario IN usuarios.id_usuario%TYPE,
+    p_data_ini   IN DATE,
+    p_data_fim   IN DATE,
+    p_resultado  OUT SYS_REFCURSOR
+  );
+
+  -- Busca métricas com filtro dinâmico (retorna cursor)
+  PROCEDURE buscar_metricas_dinamico(
+    p_id_usuario IN usuarios.id_usuario%TYPE,
+    p_filtro     IN VARCHAR2,
+    p_rc         OUT SYS_REFCURSOR
+  );
+END humana_work_pkg;
+/
+SHOW ERRORS PACKAGE humana_work_pkg;
+
+CREATE OR REPLACE PACKAGE BODY humana_work_pkg AS
+
+  PROCEDURE registrar_checkin(
+    p_id_usuario IN usuarios.id_usuario%TYPE,
+    p_humor      IN NUMBER,
+    p_energia    IN NUMBER,
+    p_foco_dia   IN VARCHAR2
+  ) IS
+    v_checkin_id NUMBER;
+  BEGIN
+    v_checkin_id := seq_checkins.NEXTVAL;
+    INSERT INTO checkins (id_checkin, id_usuario, data_checkin, humor, energia, foco_dia)
+    VALUES (v_checkin_id, p_id_usuario, SYSDATE, p_humor, p_energia, p_foco_dia);
+
+    INSERT INTO usage_log (id_log, id_usuario, acao, detalhe, data_registro)
+    VALUES (seq_usagelog.NEXTVAL, p_id_usuario, 'CHECKIN', 'Check-in registrado (id:'||v_checkin_id||')', SYSDATE);
+
+    COMMIT;
+  EXCEPTION
+    WHEN OTHERS THEN
+      ROLLBACK;
+      RAISE;
+  END registrar_checkin;
+
+  PROCEDURE iniciar_sessao_foco(
+    p_id_usuario IN usuarios.id_usuario%TYPE,
+    p_id_sala    IN salas_foco.id_sala%TYPE,
+    p_objetivo   IN VARCHAR2 DEFAULT NULL,
+    p_id_sessao  OUT sessoes_foco.id_sessao%TYPE
+  ) IS
+  BEGIN
+    p_id_sessao := seq_sessoes.NEXTVAL;
+    INSERT INTO sessoes_foco (id_sessao, id_sala, id_usuario, inicio_sessao, status, objetivo_resumido)
+    VALUES (p_id_sessao, p_id_sala, p_id_usuario, SYSDATE, 'em_andamento', p_objetivo);
+
+    INSERT INTO usage_log (id_log, id_usuario, acao, detalhe, data_registro)
+    VALUES (seq_usagelog.NEXTVAL, p_id_usuario, 'INICIO_SESSAO_FOCO', 'Sessao iniciada (id:'||p_id_sessao||', sala:'||p_id_sala||')', SYSDATE);
+
+    COMMIT;
+  EXCEPTION
+    WHEN OTHERS THEN
+      ROLLBACK;
+      RAISE;
+  END iniciar_sessao_foco;
+
+  PROCEDURE encerrar_sessao_foco(
+    p_id_sessao IN sessoes_foco.id_sessao%TYPE
+  ) IS
+    v_inicio      sessoes_foco.inicio_sessao%TYPE;
+    v_usuario     sessoes_foco.id_usuario%TYPE;
+    v_dur_min     NUMBER;
+  BEGIN
+    SELECT inicio_sessao, id_usuario INTO v_inicio, v_usuario
+      FROM sessoes_foco
+     WHERE id_sessao = p_id_sessao
+       AND status = 'em_andamento';
+
+    IF v_inicio IS NULL THEN
+      RAISE_APPLICATION_ERROR(-20001, 'Sessão não encontrada ou já encerrada.');
+    END IF;
+
+    v_dur_min := ROUND((SYSDATE - v_inicio) * 24 * 60); -- conversão dias->minutos
+
+    UPDATE sessoes_foco
+       SET fim_sessao = SYSDATE,
+           duracao_minutos = v_dur_min,
+           status = 'concluida'
+     WHERE id_sessao = p_id_sessao;
+
+    INSERT INTO usage_log (id_log, id_usuario, acao, detalhe, data_registro)
+    VALUES (seq_usagelog.NEXTVAL, v_usuario, 'FIM_SESSAO_FOCO', 'Sessao '||p_id_sessao||' finalizada com '||v_dur_min||' min', SYSDATE);
+
+    COMMIT;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      ROLLBACK;
+      RAISE_APPLICATION_ERROR(-20002, 'Sessão em andamento não encontrada para o id informado.');
+    WHEN OTHERS THEN
+      ROLLBACK;
+      RAISE;
+  END encerrar_sessao_foco;
+
+PROCEDURE gerar_relatorio_metricas(
+  p_id_usuario IN usuarios.id_usuario%TYPE,
+  p_data_ini   IN DATE,
+  p_data_fim   IN DATE,
+  p_resultado  OUT SYS_REFCURSOR
+) IS
+BEGIN
+  OPEN p_resultado FOR
+    SELECT
+      TRUNC(s.inicio_sessao) AS dia,
+      COUNT(DISTINCT s.id_sessao) AS sessoes_qtd,
+      NVL(SUM(NVL(s.duracao_minutos,0)),0) AS total_minutos,
+      ROUND(NVL(AVG(ci.media_humor),0),2) AS media_humor
+    FROM sessoes_foco s
+    LEFT JOIN (
+      /* agrupa checkins por usuario + dia e calcula a média do humor naquele dia */
+      SELECT id_usuario,
+             TRUNC(data_checkin) AS dia,
+             AVG(humor) AS media_humor
+      FROM checkins
+      GROUP BY id_usuario, TRUNC(data_checkin)
+    ) ci
+      ON s.id_usuario = ci.id_usuario
+     AND TRUNC(s.inicio_sessao) = ci.dia
+    WHERE s.id_usuario = p_id_usuario
+      AND s.inicio_sessao BETWEEN p_data_ini AND p_data_fim
+    GROUP BY TRUNC(s.inicio_sessao)
+    ORDER BY 1;
+END gerar_relatorio_metricas;
+
+
+  PROCEDURE buscar_metricas_dinamico(
+    p_id_usuario IN usuarios.id_usuario%TYPE,
+    p_filtro     IN VARCHAR2,
+    p_rc         OUT SYS_REFCURSOR
+  ) IS
+    v_sql VARCHAR2(4000);
+  BEGIN
+    v_sql := 'SELECT * FROM learning_metrics WHERE id_usuario = :id';
+
+    IF p_filtro IS NOT NULL AND TRIM(p_filtro) <> '' THEN
+      -- ATENÇÃO: p_filtro deve ser uma cláusula SQL segura; sanitize na camada de API.
+      v_sql := v_sql || ' AND ' || p_filtro;
+    END IF;
+
+    OPEN p_rc FOR v_sql USING p_id_usuario;
+  END buscar_metricas_dinamico;
+
+END humana_work_pkg;
+/
+SHOW ERRORS PACKAGE BODY humana_work_pkg;
+
+-- ------------------------------------------------
+-- 6) (Opcional) Trigger para popular uso_log em eventuais inserts diretos (exemplo)
+-- ------------------------------------------------
+-- (Não é obrigatório; as procedures já inserem logs explicitamente.)
+-- Caso deseje, você pode criar triggers para capturar alterações nas tabelas principais.
+
+-- ------------------------------------------------
+-- 7) Seed (dados iniciais de exemplo) - opcional
+-- ------------------------------------------------
+INSERT INTO usuarios (id_usuario, nome, email, senha_hash, cargo, data_cadastro)
+VALUES (seq_usuarios.NEXTVAL, 'Alice Silva', 'alice@example.com', 'hash_fake_1', 'Dev', SYSDATE);
+
+INSERT INTO usuarios (id_usuario, nome, email, senha_hash, cargo, data_cadastro)
+VALUES (seq_usuarios.NEXTVAL, 'Bruno Costa', 'bruno@example.com', 'hash_fake_2', 'Estudante', SYSDATE);
+
+INSERT INTO salas_foco (id_sala, nome_sala, descricao, tema, criada_por, data_criacao)
+VALUES (seq_salas.NEXTVAL, 'Estudos Flutter', 'Sala para estudar Flutter e práticas UI', 'Mobile & UI', 1, SYSDATE);
+
+INSERT INTO membros_sala (id_membro, id_sala, id_usuario, papel, data_entrada)
+VALUES (seq_membros.NEXTVAL, 1, 1, 'admin', SYSDATE);
+
+INSERT INTO membros_sala (id_membro, id_sala, id_usuario, papel, data_entrada)
+VALUES (seq_membros.NEXTVAL, 1, 2, 'participante', SYSDATE);
+
+COMMIT;
+
+-- ------------------------------------------------
+-- 8) Recomendações pós-criação
+-- ------------------------------------------------
+-- 1) Para chamadas da aplicação, invoque as procedures do pacote 'humana_work_pkg'
+--    Exemplo: humana_work_pkg.registrar_checkin(p_id_usuario => 1, p_humor => 4, p_energia => 7, p_foco_dia => 'Estudar PL/SQL');
+-- 2) Para relatórios, use humana_work_pkg.gerar_relatorio_metricas com um SYS_REFCURSOR.
+-- 3) Considere criar usuários/grants apropriados se a API conectar com credenciais distintas.
+-- 4) Na API, valide/escape qualquer cláusula dinâmica (p_filtro) antes de enviar ao pacote para evitar SQL injection.
+-- ------------------------------------------------
+
+PROMPT 'SCRIPT EXECUTADO COM SUCESSO';

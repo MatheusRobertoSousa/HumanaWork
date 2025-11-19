@@ -5,6 +5,12 @@ Desenvolvida em **Flutter**, integrada a um back-end com **Oracle + PL/SQL** par
 
 ---
 
+IMPORTANTE, CASO O PROFESSOR DESEJE RODAR A APLICAÇÃO E FAZER O TESTE, DEVE UTILIZAR AS SEGUINTES CREDENCIAIS:
+EMAIL:alice@example.com
+senha:123456
+
+EM CASO DE UTILIZAÇÃO EM PRODUÇÃO, AS CREDENCIAIS DE ACESSO SERIAM FORNECIDAS PELA EMPRESA AOS SEUS COLABORADORES, POR ISSO A AUSÊNCIA DA PÁGINA DE CRIAÇÃO DE CONTA.
+
 ## 1. Visão geral
 
 O **HumanaWork** é um aplicativo mobile que apoia estudantes, profissionais e times remotos na organização do trabalho de forma mais **humana, significativa e sustentável**.  
